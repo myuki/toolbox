@@ -14,7 +14,7 @@ Example: `7zAll.sh -mx=0 -ms=off -mmt=11`
 
 ## extractOpus.py
 
-extract Opus from all Matroska (.mkv, .webm) in current directory.
+Extract Opus from all Matroska (.mkv, .webm) files in current directory.
 
 Requirements: `ffmpeg`
 
@@ -30,7 +30,7 @@ Example: `purge.sh package0 package1`
 
 Create a btrfs snapshot and delete the oldest snapshot when reach the specific limit of amount.
 
-Can specific which snapshot should be reserved when delete. Or specific the tag in snapshot name.
+Can use `reservedSnapshotList` to specific which snapshot should be reserved when delete. Or specific the tag in `reservedSnapshotTags`.
 
 Parameter: `[snapshot name]`
 

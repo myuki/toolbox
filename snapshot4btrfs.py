@@ -8,7 +8,7 @@ import sys
 
 snapshotPath: str = "~/snapshots/"
 snapshotLimit: int = 5
-reservedSnapshotTag: set = {"Backup", "backup"}
+reservedSnapshotTags: set = {"Backup", "backup"}
 reservedSnapshotList: set = set()
 
 if __name__ == "__main__":
@@ -32,7 +32,7 @@ if __name__ == "__main__":
     # Delete oldest snapshot when reach limit
     while available < 1:
       reserve: bool = False
-      for str in reservedSnapshotTag:
+      for str in reservedSnapshotTags:
         if str in snapshotList[first]:
           first = first + 1
           reserve = True
