@@ -2,7 +2,7 @@
 
 # Dependencies: ffmpeg
 
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 import os
 import subprocess
@@ -48,25 +48,29 @@ def processFiles(processPaths: dict[str, str], fun) -> dict[str, str]:
 
   # Init thread
   total: int = len(processPaths)
-  threadPool = ThreadPoolExecutor(threadLimit if total > threadLimit else total)
-  threadResult: dict[str, Future] = {} # File: Result
+  threadResult: dict[Future, str] = {} # Future: inputPath
+  with ThreadPoolExecutor(max_workers=threadLimit) as threadPool:
 
-  for inputPath, outputPath in processPaths.items():
-    try:
-      threadResult[inputPath] = threadPool.submit(fun, inputPath, outputPath)
-    except Exception as e:
-      errorList[inputPath] = str(e)
+    # Run subprocess
+    for inputPath, outputPath in processPaths.items():
+      try:
+        future = threadPool.submit(fun, inputPath, outputPath)
+        threadResult[future] = inputPath
+      except Exception as e:
+        errorList[inputPath] = str(e)
 
-  # Wait all subprocess
-  current: int = 0
-  for file, future in threadResult.items():
-    current = current + 1
-    if file not in errorList:
+    # Wait all subprocess
+    current: int = 0
+    for future in as_completed(threadResult):
+      current = current + 1
       clenCliLine(f"Processing {current}/{total}...", end="")
-      result: subprocess.CompletedProcess = future.result()
+
+      inputPath = threadResult[future]
+      result = future.result()
       if result.returncode != 0:
-        errorList[file] = result.stderr.strip() + result.stdout.strip()
-  clenCliLine(f"Processing {current}/{total}.")
+        errorList[inputPath] = f"{result.stderr}\n{result.stdout}".strip()
+
+    clenCliLine(f"Processing {current}/{total}.")
   return errorList
 
 
