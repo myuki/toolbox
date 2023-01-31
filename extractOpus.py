@@ -10,22 +10,22 @@ import sys
 
 extensions: tuple = (".mkv", ".webm")
 
-# Init
-threadLimit = int(cpu_count() / 2)
-## Check available CLI
-try:
-  result = subprocess.run("ffmpeg", capture_output=True)
-except FileNotFoundError:
-  print("Can't find ffmpeg!")
-  sys.exit(1)
 
-
-def extractOpus(srcFile: str, dstFile: str) -> subprocess.CompletedProcess:
+def extractOpus(inputPath: str, outputPath: str) -> subprocess.CompletedProcess:
   result = subprocess.run(
-      f"ffmpeg -i \"{srcFile}\" -c copy \"{dstFile}\"",
+      f"ffmpeg -i \"{inputPath}\" -c copy -y \"{outputPath}\"",
       capture_output=True,
       text=True)
   return result
+
+
+def checkCliExist(path: str) -> bool:
+  try:
+    subprocess.run(path, capture_output=True)
+  except FileNotFoundError:
+    return False
+  else:
+    return True
 
 
 def clenCliLine(override: str = "", end: str = "\n", width: int = 90):
@@ -34,51 +34,72 @@ def clenCliLine(override: str = "", end: str = "\n", width: int = 90):
     print("\r" + override, end=end)
 
 
-if __name__ == "__main__":
-  # Check path
-  path: str = sys.path[0]
-  outputPath: str = os.path.join(path, "output")
-  if not os.path.exists(outputPath):
-    os.makedirs(outputPath)
+def getFilesByExt(path: str, extensions: tuple) -> list[str]:
+  fileList: list[str] = []
+  for file in os.listdir(path):
+    if file.endswith(extensions):
+      fileList.append(file)
+  return fileList
 
+
+def processFiles(processPaths: dict[str, str], fun) -> dict[str, str]:
+  threadLimit = int(cpu_count() / 2)
   errorList: dict[str, str] = {}
 
-  # Get input file list
-  inputFileList: dict[str, str] = {} # File: Filename without extension
-  dirList: list[str] = os.listdir(path)
-  for inputFile in dirList:
-    if inputFile.endswith(extensions):
-      for extension in extensions:
-        if extension in inputFile:
-          inputFileList[inputFile] = inputFile.rstrip(extension)
-          break
-
-  # Extract
-  total: int = len(inputFileList)
+  # Init thread
+  total: int = len(processPaths)
   threadPool = ThreadPoolExecutor(threadLimit if total > threadLimit else total)
   threadResult: dict[str, Future] = {} # File: Result
-  for file, name in inputFileList.items():
-    try:
-      threadResult[file] = threadPool.submit(
-          extractOpus, os.path.join(path, file),
-          f"{os.path.join(outputPath, name)}.opus")
-    except Exception as e:
-      errorList[file] = str(e)
 
-  ## Wait all ffmpeg subprocess
+  for inputPath, outputPath in processPaths.items():
+    try:
+      threadResult[inputPath] = threadPool.submit(fun, inputPath, outputPath)
+    except Exception as e:
+      errorList[inputPath] = str(e)
+
+  # Wait all subprocess
   current: int = 0
   for file, future in threadResult.items():
     current = current + 1
     if file not in errorList:
-      if len(file) > 35:
-        file = file[:35] + "..."
-      clenCliLine(f"Extract {current}/{total}: {file}", end="")
-      # Print 7z output if return code is not 0
+      clenCliLine(f"Processing {current}/{total}...", end="")
       result: subprocess.CompletedProcess = future.result()
       if result.returncode != 0:
-        errorList[file] = result.stdout.strip().replace("\n\n", "\n")
-        currentExtractNum = current - 1
-  clenCliLine(f"Extract {current}/{total}.")
+        errorList[file] = result.stderr.strip() + result.stdout.strip()
+  clenCliLine(f"Processing {current}/{total}.")
+  return errorList
+
+
+def stripExt(fileName: str) -> str:
+  return fileName[0:fileName.rfind(".")]
+
+
+if __name__ == "__main__":
+
+  # Check path
+  path: str = sys.path[0]
+  outputDirPath: str = os.path.join(path, "output")
+  if not os.path.exists(outputDirPath):
+    os.makedirs(outputDirPath)
+
+  # Check available CLI
+  if not checkCliExist("ffmpeg"):
+    print("Can't find ffmpeg!")
+    sys.exit(1)
+
+  # Get input file list
+  inputFiles = getFilesByExt(path, extensions)
+  if len(inputFiles) < 1:
+    print("No file can be processed!\n")
+    sys.exit(0)
+
+  # Extract all files
+  processPaths: dict[str, str] = {} # inputPath: outPath
+  for file in inputFiles:
+    inputPath = os.path.join(path, file)
+    outputPath = os.path.join(outputDirPath, f"{stripExt(file)}.opus")
+    processPaths[inputPath] = outputPath
+  errorList = processFiles(processPaths, extractOpus)
 
   # Print error
   if errorList:
