@@ -11,12 +11,15 @@ import sys
 extensions: tuple = (".mkv", ".webm")
 
 
-def extractOpus(inputPath: str, outputPath: str) -> subprocess.CompletedProcess:
+def extractOpus(inputPath: str, outputPath: str) -> str:
+  error = ""
   result = subprocess.run(
       f"ffmpeg -i \"{inputPath}\" -c copy -y \"{outputPath}\"",
       capture_output=True,
       text=True)
-  return result
+  if result.returncode != 0:
+    error = f"{result.stderr}\n{result.stdout}"
+  return error
 
 
 def checkCliExist(path: str) -> bool:
@@ -42,7 +45,7 @@ def getFilesByExt(path: str, extensions: tuple) -> list[str]:
   return fileList
 
 
-def processFiles(processPaths: dict[str, str], fun) -> dict[str, str]:
+def multiprocessFiles(processPaths: dict[str, str], fun) -> dict[str, str]:
   threadLimit = int(cpu_count() / 2)
   errorList: dict[str, str] = {}
 
@@ -66,9 +69,9 @@ def processFiles(processPaths: dict[str, str], fun) -> dict[str, str]:
       clenCliLine(f"Processing {current}/{total}...", end="")
 
       inputPath = threadResult[future]
-      result = future.result()
-      if result.returncode != 0:
-        errorList[inputPath] = f"{result.stderr}\n{result.stdout}".strip()
+      error = future.result()
+      if error:
+        errorList[inputPath] = error.strip()
 
     clenCliLine(f"Processing {current}/{total}.")
   return errorList
@@ -103,7 +106,7 @@ if __name__ == "__main__":
     inputPath = os.path.join(path, file)
     outputPath = os.path.join(outputDirPath, f"{stripExt(file)}.opus")
     processPaths[inputPath] = outputPath
-  errorList = processFiles(processPaths, extractOpus)
+  errorList = multiprocessFiles(processPaths, extractOpus)
 
   # Print error
   if errorList:
