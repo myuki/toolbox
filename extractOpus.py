@@ -64,6 +64,7 @@ def multiprocessFiles(processPaths: dict[str, str], fun) -> dict[str, str]:
 
     # Wait all subprocess
     current: int = 0
+    clenCliLine(f"Processing {current}/{total}...", end="")
     for future in as_completed(threadResult):
       current = current + 1
       clenCliLine(f"Processing {current}/{total}...", end="")
