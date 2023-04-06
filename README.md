@@ -12,6 +12,16 @@ Parameter:`[<7z switches>...]`
 
 Example: `7zAll.sh -mx=0 -ms=off -mmt=11`
 
+## docker-gui.sh
+
+Warp some docker options for create a docker container with GUI support.
+
+Requirements: `docker`
+
+Parameter:`[OPTIONS] IMAGE [COMMAND] [ARG...]`
+
+Example: `docker-gui.sh -it --gpus all -v ~/shares:/shares --name cuda12.0.1 nvidia/cuda:12.0.1-cudnn8-devel-ubuntu22.04`
+
 ## extractOpus.py
 
 Extract Opus from all Matroska (.mkv, .webm) files in current directory.
